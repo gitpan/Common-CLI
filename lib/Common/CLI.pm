@@ -9,11 +9,11 @@ use Data::FormValidator;
 use Getopt::Long;
 use File::Basename qw(basename);
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 sub new {
     my $class = shift;
-    my $self = {};
+    my $self  = {};
     bless $self, $class;
     $self->init(@_);
     return $self;
@@ -63,8 +63,7 @@ sub input {
 sub validate_options {
     my $self = shift;
 
-    my $results = 
-        Data::FormValidator->check( $self->input(), $self->profile() );
+    my $results = Data::FormValidator->check( $self->input(), $self->profile() );
 
     if ( $results->has_invalid or $results->has_missing ) {
         return ( undef, [ $results->invalid ], [ $results->missing ] );
@@ -104,7 +103,7 @@ sub run {
 
     my $status = $self->main($options);
 
-    exit($status);
+    return $status;
 }
 
 sub main {
@@ -112,10 +111,34 @@ sub main {
 }
 
 sub arguments {
-    confess "arguments() must be overriden";
+    return ();
 }
 
-sub display_help { 
+sub merge_arguments {
+    my ( $self, $left, $right ) = @_;
+
+    for my $flag (qw( required optional )) {
+        for ( @{ $right->{profile}{$flag} } ) {
+            push @{ $left->{profile}{$flag} }, $_;
+        }
+    }
+
+    for my $flag (qw( defaults constraint_methods )) {
+        if ( $right->{profile}{$flag}
+            and ref $right->{profile}{$flag} eq 'HASH' )
+        {
+
+            for ( keys %{ $right->{profile}{$flag} } ) {
+                $left->{profile}{$flag}{$_} = $right->{profile}{$flag}{$_}
+                  unless exists $left->{profile}{$flag}{$_};
+            }
+        }
+    }
+
+    return %$left;
+}
+
+sub display_help {
     my $self = shift;
 
     for my $item ( @{ $self->help } ) {
@@ -124,10 +147,7 @@ sub display_help {
         $message .= "\t" . $item->[1];
 
         if ( ${ $self->profile }{defaults}{ $item->[2] } ) {
-            $message .= 
-                  " (default: " 
-                . ${ $self->profile }{defaults}{ $item->[2] } 
-                . ")";
+            $message .= " (default: " . ${ $self->profile }{defaults}{ $item->[2] } . ")";
         }
 
         $message .= "\n";
@@ -137,7 +157,7 @@ sub display_help {
 }
 
 sub __parse_profile {
-    my ( $profile ) = @_;
+    my ($profile) = @_;
 
     my @options;
     my %profile;
@@ -161,7 +181,7 @@ sub __parse_profile {
 
                 # store stripped option
                 push @help_data, $_;
-                push @help, \@help_data;;
+                push @help,      \@help_data;
 
                 $profile{$spec} = [] if !exists $profile{$spec};
                 unshift @{ $profile{$spec} }, $_;
@@ -181,10 +201,10 @@ sub __parse_profile {
 }
 
 sub __parse_command_line_options {
-    my ( $options ) = @_;
+    my ($options) = @_;
 
     my %parsed_options;
-    if ( !GetOptions( \%parsed_options, @{ $options } ) ) {
+    if ( !GetOptions( \%parsed_options, @{$options} ) ) {
         return;
     }
     return \%parsed_options;
@@ -195,7 +215,7 @@ sub __display_missing {
 
 }
 
-sub __display_invalid { 
+sub __display_invalid {
     my $invalid = shift;
 
 }
@@ -204,7 +224,6 @@ sub __display_usage {
     my $name = basename($0);
     print "\nUsage: $0 OPTIONS\n\n";
 }
-
 
 1;
 
@@ -226,15 +245,11 @@ Common::CLI - Command line applications made easy.
     sub arguments {
         return (
             profile => {
-                'optional' => [
-                    [ 'output-format=s', 'Output format' ],
-                ],
+                'optional' => [ [ 'output-format=s', 'Output format' ], ],
 
-                'defaults' => {
-                    'output-format' => 'html',
-                },
-           }
-       );
+                'defaults' => { 'output-format' => 'html', },
+            }
+        );
     }
 
     # This is your main subroutine, which will be called by run() after options
@@ -244,7 +259,7 @@ Common::CLI - Command line applications made easy.
 
         my $output_format = $options->{'output-format'};
 
-        ...
+        # ...
 
         # This will be used by run() to exit
         return $status;
@@ -253,7 +268,7 @@ Common::CLI - Command line applications made easy.
     package main;
 
     # Instantiate and run your brand new application
-    My::Application->new()->run();
+    exit My::Application->new()->run();
 
 =head1 ABSTRACT
 
@@ -280,7 +295,7 @@ you what went wrong, and also display the usage.
 
 =over 4
 
-=item new( %profile )
+=item new(%profile)
 
 If C<%profile> is C<undef>, will use package's defined C<arguments()>
 otherwise will use C<%profile> to build options used by
@@ -289,7 +304,7 @@ information.
 
     package My::Application;
 
-    ...
+    # ...
 
     My::Application->new(
         profile => {
@@ -300,26 +315,26 @@ information.
     );
             
 
-=item init( %args )
+=item init(%args)
 
 This method is used to initialize the object. Really. Basically it
 generates L<Data::FormValidator> compatible profile, L<Getopt::Long>
 compatible options and help information. If you're planning to
 override this, don't forget to call C<SUPER::init(%args)>!
 
-=item profile( $profile )
+=item profile($profile)
 
 Setter and getter for L<Data::FormValidator> compatible profile.
 
-=item options( $options )
+=item options($options)
 
 Setter and getter for L<Getopt::Long> compatible options.
 
-=item help( $help )
+=item help($help)
 
 Setter and getter for generated help information.
 
-=item input( $input )
+=item input($input)
 
 Setter and getter for user input data (usually L<Getopt::Long> parsed
 options).
@@ -339,7 +354,7 @@ C<validate_options()>, and display the help message if anything went
 wrong or if user required to do so. If any of this happened, it will
 execute C<main()> and exit using its exit code.
 
-=item main( $options )
+=item main($options)
 
 This routine must be overriden by all C<Common::CLI> subclasses. It
 will be filled by the developer with any business logic he or she
@@ -357,18 +372,67 @@ not provided in C<new()>:
     sub arguments {
         return (
             profile => {
-                'optional' => [
-                    [ 'email', 'Your email address', ]
-                ],
+                'optional' =>
+                  [ [ 'email', 'Your email address', ] ],
             },
         );
     }
 
-    ...
+    # ...
 
     package main;
 
     My::Application->new()->run();
+
+By default, it returns an empty list.
+
+=item merge_arguments()
+
+This routine is used to merge your application defined arguments with
+SUPER defined arguments:
+    
+    package My::App;
+
+    use base 'Common::CLI';
+
+    sub arguments {
+        my $self = shift;
+        return $self->merge_arguments(
+            { $self->SUPER::arguments },
+            {
+                profile => {
+                    required =>
+                      [ [ 'import=s', 'Import this file' ], ]
+                }
+            }
+        );
+    }
+
+    # ...
+
+    package My::Other::App;
+
+    use base 'My::App';
+
+    sub arguments {
+        my $self = shift;
+        return $self->merge_arguments(
+            { $self->SUPER::arguments },
+            {
+                profile =>
+                  { optional => [ [ 'format=s', 'Input format' ], ] }
+            }
+        );
+    }
+
+Our profile will be:
+
+    {
+        profile => {
+            required => [ [ 'import=s', 'Import this file' ], ],
+            optional => [ [ 'format=s', 'Input format' ], ],
+        },
+    }
 
 =item display_help()
 

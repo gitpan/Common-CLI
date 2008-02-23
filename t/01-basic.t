@@ -3,7 +3,7 @@ use warnings;
 
 use Test::More;
 
-plan tests => 8;
+plan tests => 9;
 
 package My::Application;
 
@@ -168,3 +168,34 @@ package main;
     is_deeply( [ sort @$invalid ], [ sort @$wanted_invalid ] );
 }
 
+package My::Other::Yet::Application;
+
+use base 'My::Other::Application';
+
+sub arguments {
+    my $self = shift;
+    $self->merge_arguments( { $self->SUPER::arguments }, {
+        profile => {
+            'required' => [
+                [ 'export=s', 'File to export' ],
+            ],
+            'constraint_methods' => {
+                'export' => sub { return },
+            }
+        },
+    } );
+}
+
+package main;
+
+{
+    local @ARGV = qw( --import /tmp/non-existent-file.csv  --export /tmp/file );
+
+    #
+    # Check profile created
+    #
+    my $app = My::Other::Yet::Application->new();
+    my $wanted_invalid = [ 'import', 'export' ];
+    my ( undef, $invalid, undef ) = $app->validate_options();
+    is_deeply( [ sort @$invalid ], [ sort @$wanted_invalid ] );
+}
