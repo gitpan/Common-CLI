@@ -9,7 +9,7 @@ use Data::FormValidator;
 use Getopt::Long;
 use File::Basename qw(basename);
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 sub new {
     my $class = shift;
@@ -111,7 +111,7 @@ sub main {
 }
 
 sub arguments {
-    return ();
+    return ( profile => { optional => [ [ 'help', 'Displays this help' ], ], } );
 }
 
 sub merge_arguments {
